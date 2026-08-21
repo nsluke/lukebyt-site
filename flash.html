@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LukeByt — Tidbyt Rescue Flasher</title>
+<meta name="description" content="Reflash a Tidbyt with community Tronbyt firmware, straight from your browser. No cloud required, nothing to install.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#120e0b;
+    --panel:#1b1512;
+    --panel-2:#221a15;
+    --walnut:#6e4b31;
+    --walnut-deep:#3f2a1b;
+    --walnut-hi:#8a6244;
+    --bone:#ece4d8;
+    --bone-dim:#b3a795;
+    --amber:#ffb03a;
+    --amber-deep:#e08414;
+    --ok:#8fd6a3;
+    --err:#e08a7a;
+    --line:rgba(140,104,74,.28);
+    --maxw:820px;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--ink);
+    color:var(--bone);
+    font-family:"Instrument Sans",system-ui,sans-serif;
+    font-size:17px;line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  ::selection{background:var(--amber);color:var(--ink)}
+  a{color:var(--amber);text-decoration:none}
+  a:hover{text-decoration:underline}
+  :focus-visible{outline:2px solid var(--amber);outline-offset:3px;border-radius:4px}
+
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+
+  .px-label{
+    font-family:"Silkscreen",monospace;
+    font-size:11px;letter-spacing:.14em;
+    color:var(--amber);text-transform:uppercase;
+  }
+  .px-label--dim{color:var(--bone-dim)}
+  h1,h2,h3{font-family:"Bricolage Grotesque",sans-serif;line-height:1.08;letter-spacing:-.01em}
+
+  nav{
+    position:sticky;top:0;z-index:50;
+    background:color-mix(in srgb,var(--ink) 86%,transparent);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .wordmark{font-family:"Silkscreen",monospace;font-weight:700;font-size:16px;letter-spacing:.1em;color:var(--bone)}
+  .wordmark b{color:var(--amber);font-weight:700}
+  .nav-back{font-size:14px;font-weight:500;color:var(--bone-dim)}
+  .nav-back:hover{color:var(--amber)}
+
+  header.top{padding:64px 0 40px}
+  header.top h1{font-size:clamp(32px,4.6vw,50px);font-weight:800;margin:18px 0 18px}
+  header.top .lede{font-size:18px;color:var(--bone-dim);max-width:38em}
+  header.top .lede strong{color:var(--bone);font-weight:600}
+
+  .banner{
+    display:none;
+    margin:28px 0 0;
+    border:1px solid rgba(224,138,122,.5);border-radius:var(--radius);
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    padding:18px 22px;font-size:15px;color:var(--bone-dim);
+  }
+  .banner.show{display:block}
+  .banner b{color:var(--err)}
+
+  .step{
+    border:1px solid var(--line);border-radius:var(--radius);
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    padding:30px 28px;margin:22px 0;
+    transition:border-color .2s ease;
+  }
+  .step.done{border-color:rgba(143,214,163,.4)}
+  .step-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+  .step-head .n{font-family:"Silkscreen",monospace;font-size:12px;color:var(--amber);letter-spacing:.14em}
+  .step-head h2{font-size:22px;font-weight:800}
+  .step-head .tick{margin-left:auto;font-family:"Silkscreen",monospace;font-size:11px;letter-spacing:.1em;color:var(--ok);display:none}
+  .step.done .tick{display:inline}
+  .step > p.hint{font-size:14.5px;color:var(--bone-dim);margin:6px 0 18px;max-width:56ch}
+
+  /* firmware picker */
+  .fw-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .fw-grid input{position:absolute;opacity:0;pointer-events:none}
+  .fw-grid label{
+    display:block;cursor:pointer;user-select:none;
+    border:1px solid var(--line);border-radius:10px;
+    padding:16px 18px;transition:all .12s ease;
+  }
+  .fw-grid label .t{display:block;font-weight:600;font-size:15.5px;color:var(--bone)}
+  .fw-grid label .d{display:block;font-size:13px;color:var(--bone-dim);margin-top:3px}
+  .fw-grid input:checked + label{border-color:var(--amber);background:rgba(255,176,58,.07)}
+  .fw-grid input:checked + label .t{color:var(--amber)}
+  .fw-grid input:focus-visible + label{outline:2px solid var(--amber);outline-offset:2px}
+  .fw-custom-row{margin-top:12px;display:none;gap:12px;align-items:center;flex-wrap:wrap}
+  .fw-custom-row.show{display:flex}
+  .fw-custom-row input[type=file]{font-size:14px;color:var(--bone-dim);max-width:100%}
+  .fw-custom-row input[type=file]::file-selector-button{
+    font:inherit;font-weight:600;cursor:pointer;
+    background:var(--panel-2);color:var(--bone);
+    border:1px solid var(--line);border-radius:8px;
+    padding:8px 14px;margin-right:12px;
+  }
+  .offset-field{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--bone-dim)}
+  .offset-field input{
+    width:90px;background:var(--panel);border:1px solid var(--line);
+    color:var(--bone);font-family:"Silkscreen",monospace;font-size:12px;
+    padding:8px 10px;border-radius:8px;
+  }
+
+  /* buttons */
+  .btn{
+    font:inherit;font-weight:600;cursor:pointer;
+    background:var(--amber);color:var(--ink);
+    border:0;border-radius:10px;padding:13px 24px;
+    transition:transform .12s ease,background .12s ease;
+  }
+  .btn:hover{background:var(--amber-deep)}
+  .btn:active{transform:translateY(1px)}
+  .btn:disabled{background:#3a3129;color:#8d8172;cursor:not-allowed;transform:none}
+  .btn--ghost{
+    background:transparent;color:var(--bone-dim);
+    border:1px solid var(--line);
+  }
+  .btn--ghost:hover{background:var(--panel-2);color:var(--bone)}
+
+  .connect-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .conn-status{font-family:"Silkscreen",monospace;font-size:11px;letter-spacing:.1em;color:var(--bone-dim)}
+  .conn-status b{color:var(--ok);font-weight:400}
+  select{
+    background:var(--panel);border:1px solid var(--line);
+    color:var(--bone);font:inherit;font-size:14px;
+    padding:10px 12px;border-radius:8px;
+  }
+  .opt-row{display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-top:16px;font-size:14px;color:var(--bone-dim)}
+  .opt-row label{display:flex;gap:8px;align-items:center;cursor:pointer}
+  .opt-row input[type=checkbox]{accent-color:var(--amber);width:15px;height:15px}
+
+  /* progress */
+  .progress-wrap{display:none;margin-top:20px}
+  .progress-wrap.show{display:block}
+  .progress-track{
+    height:14px;border-radius:999px;overflow:hidden;
+    background:var(--ink);border:1px solid var(--line);
+  }
+  .progress-fill{
+    height:100%;width:0%;
+    background:linear-gradient(90deg,var(--amber-deep),var(--amber));
+    transition:width .15s linear;
+  }
+  .progress-pct{font-family:"Silkscreen",monospace;font-size:11px;letter-spacing:.1em;color:var(--amber);margin-top:8px}
+
+  /* log terminal */
+  .term{
+    margin-top:20px;
+    background:#0b0806;border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px;height:180px;overflow-y:auto;
+    font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.5;
+    color:var(--bone-dim);white-space:pre-wrap;word-break:break-all;
+  }
+  .term .warn{color:var(--amber)}
+  .term .bad{color:var(--err)}
+  .term .good{color:var(--ok)}
+
+  /* success */
+  .success{
+    display:none;
+    border:1px solid rgba(143,214,163,.45);border-radius:var(--radius);
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    padding:30px 28px;margin:22px 0;
+  }
+  .success.show{display:block}
+  .success h2{font-size:24px;font-weight:800;margin-bottom:12px}
+  .success ol{margin:14px 0 6px 20px;color:var(--bone-dim);font-size:15.5px}
+  .success ol li{padding:5px 0}
+  .success ol b{color:var(--bone);font-weight:600}
+  .success code{
+    font-family:"Silkscreen",monospace;font-size:11px;color:var(--amber);
+    background:var(--ink);padding:3px 8px;border-radius:6px;letter-spacing:.06em;
+  }
+  .success .pitch{margin-top:18px;font-size:14px;color:#8d8172}
+
+  /* faq */
+  section.faq-sec{padding:56px 0 72px;border-top:1px solid var(--line);margin-top:56px}
+  .faq{max-width:760px}
+  .faq details{border-top:1px solid var(--line)}
+  .faq details:last-child{border-bottom:1px solid var(--line)}
+  .faq summary{
+    cursor:pointer;list-style:none;
+    padding:20px 8px;font-weight:600;font-size:16.5px;
+    display:flex;justify-content:space-between;align-items:center;gap:16px;
+  }
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";font-family:"Silkscreen";color:var(--amber);font-size:14px;transition:transform .15s ease}
+  .faq details[open] summary::after{transform:rotate(45deg)}
+  .faq .a{padding:0 8px 22px;color:var(--bone-dim);font-size:15px;max-width:62ch}
+
+  footer{border-top:1px solid var(--line);padding:36px 0 52px}
+  .foot-inner{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:flex-start}
+  footer p{font-size:13px;color:#8d8172;max-width:46em}
+  footer .wordmark{font-size:13px}
+
+  @media (max-width:640px){
+    .fw-grid{grid-template-columns:1fr}
+    header.top{padding-top:44px}
+    .step{padding:24px 20px}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-inner">
+    <a href="index.html" style="text-decoration:none"><span class="wordmark">LUKE<b>BYT</b></span></a>
+    <a class="nav-back" href="index.html">&larr; Back to LukeByt</a>
+  </div>
+</nav>
+
+<header class="top">
+  <div class="wrap">
+    <span class="px-label">Tidbyt Gen 1 &amp; Gen 2 · Free · Nothing to install</span>
+    <h1>Rescue flasher.</h1>
+    <p class="lede">
+      Reflash a Tidbyt with the community
+      <a href="https://github.com/tronbyt/firmware-esp32" target="_blank" rel="noopener">Tronbyt firmware</a>,
+      right from this page. Afterwards it talks to <strong>a server you control</strong> —
+      a Tronbyt server on your network, or a LukeByt — instead of a cloud you don't.
+      Plug the Tidbyt into this computer with USB-C and go.
+    </p>
+    <div class="banner" id="no-serial">
+      <b>This browser can't reach USB devices.</b> The flasher needs Web Serial, which
+      Safari and Firefox don't implement. Open this page in <b>Chrome</b> or <b>Edge</b> —
+      that's the only requirement.
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- STEP 1 -->
+  <div class="step" id="step-fw">
+    <div class="step-head">
+      <span class="n">STEP 01</span>
+      <h2>Choose firmware</h2>
+      <span class="tick">READY</span>
+    </div>
+    <p class="hint">Not sure which generation? Gen 1 shipped 2021–2023 with a micro-textured walnut face; Gen 2 says "Gen 2" on the box. Start with the plain Gen 1 build — if colors or the two halves of the screen come out wrong, re-flash with the swapped variant.</p>
+    <div class="fw-grid" role="radiogroup" aria-label="Firmware variant">
+      <input type="radio" name="fw" value="gen1" id="fw-gen1" checked>
+      <label for="fw-gen1"><span class="t">Tidbyt Gen 1</span><span class="d">Most units. Tronbyt v1.6.7</span></label>
+      <input type="radio" name="fw" value="gen1_swap" id="fw-gen1s">
+      <label for="fw-gen1s"><span class="t">Tidbyt Gen 1 (swapped panel)</span><span class="d">If Gen 1 firmware shows scrambled halves or wrong colors</span></label>
+      <input type="radio" name="fw" value="gen2" id="fw-gen2">
+      <label for="fw-gen2"><span class="t">Tidbyt Gen 2</span><span class="d">Tronbyt v1.6.7</span></label>
+      <input type="radio" name="fw" value="custom" id="fw-custom">
+      <label for="fw-custom"><span class="t">Custom .bin</span><span class="d">e.g. firmware generated by your Tronbyt server, with WiFi baked in</span></label>
+    </div>
+    <div class="fw-custom-row" id="custom-row">
+      <input type="file" id="fw-file" accept=".bin" aria-label="Custom firmware file">
+      <span class="offset-field">
+        <label for="fw-offset">Flash offset</label>
+        <input type="text" id="fw-offset" value="0x0" spellcheck="false">
+      </span>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step" id="step-conn">
+    <div class="step-head">
+      <span class="n">STEP 02</span>
+      <h2>Connect the Tidbyt</h2>
+      <span class="tick">CONNECTED</span>
+    </div>
+    <p class="hint">Use the USB-C cable that charges your phone — some cables are power-only and won't show up. Pick the serial port in the popup (usually "CP2102" or "USB to UART").</p>
+    <div class="connect-row">
+      <button class="btn" id="btn-connect">Connect</button>
+      <button class="btn btn--ghost" id="btn-disconnect" style="display:none">Disconnect</button>
+      <select id="baud" aria-label="Flashing speed">
+        <option value="115200">115200 baud — safest</option>
+        <option value="460800" selected>460800 baud — default</option>
+        <option value="921600">921600 baud — fastest</option>
+      </select>
+      <span class="conn-status" id="conn-status">NOT CONNECTED</span>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step" id="step-flash">
+    <div class="step-head">
+      <span class="n">STEP 03</span>
+      <h2>Flash it</h2>
+      <span class="tick">DONE</span>
+    </div>
+    <p class="hint">Takes about a minute. Don't unplug mid-flash — though if it goes wrong, you can just flash again; the ESP32's ROM loader is unbrickable from here.</p>
+    <div class="opt-row">
+      <label><input type="checkbox" id="erase-all"> Erase entire flash first <span style="color:#8d8172">— slower; recommended when leaving Tidbyt's stock firmware</span></label>
+    </div>
+    <div style="margin-top:18px">
+      <button class="btn" id="btn-flash" disabled>Flash firmware</button>
+    </div>
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-pct" id="progress-pct">0%</div>
+    </div>
+    <div class="term" id="term" role="log" aria-live="polite" aria-label="Flashing log"></div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div class="success" id="success">
+    <span class="px-label" style="color:var(--ok)">Flash complete</span>
+    <h2>Your Tidbyt is free.</h2>
+    <p style="color:var(--bone-dim);font-size:15.5px">It just rebooted into Tronbyt firmware. Three steps left, and they happen on your phone:</p>
+    <ol>
+      <li>Unplug the Tidbyt from the computer and plug it into any USB power.</li>
+      <li>On your phone, join the WiFi network <code>TRONBYT-CONFIG</code> and open <code>http://10.10.0.1</code>.</li>
+      <li>Enter your home WiFi and the URL of your <b>Tronbyt server</b> — that's what feeds it apps from here on.</li>
+    </ol>
+    <p class="pitch">
+      Don't have a server yet? <a href="https://github.com/tronbyt/server" target="_blank" rel="noopener">Tronbyt server</a>
+      runs on anything that runs Docker, including a $15 Pi. Or
+      <a href="index.html#reserve">reserve a LukeByt</a> — same open ecosystem, server already inside the box.
+    </p>
+  </div>
+
+  <!-- FAQ -->
+  <section class="faq-sec">
+    <span class="px-label px-label--dim">Troubleshooting</span>
+    <div class="faq" style="margin-top:18px">
+      <details>
+        <summary>No serial port shows up in the popup</summary>
+        <div class="a">Nine times out of ten it's the cable — swap it for one you've synced data over. Otherwise it's the USB-UART driver: recent macOS and Windows 11 include the CP210x driver, but older systems may need <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers" target="_blank" rel="noopener">Silicon Labs' VCP driver</a>. On Linux, add yourself to the <code style="font-family:ui-monospace,monospace;font-size:13px">dialout</code> group.</div>
+      </details>
+      <details>
+        <summary>Connecting or flashing fails partway through</summary>
+        <div class="a">Drop the speed to 115200 baud and try again. Skip USB hubs and plug straight into the computer. If it still fails, unplug the Tidbyt, plug it back in, and reconnect — the ROM loader resets clean every time.</div>
+      </details>
+      <details>
+        <summary>It flashed, but the screen is scrambled or the colors are wrong</summary>
+        <div class="a">That's the panel variant lottery — some Gen 1 units use a different LED panel. Re-flash with <b>Gen 1 (swapped panel)</b>. Nothing is broken.</div>
+      </details>
+      <details>
+        <summary>Can I go back to stock Tidbyt firmware?</summary>
+        <div class="a">This page doesn't carry stock firmware, and Tidbyt doesn't publish a restore image. Treat the switch as one-way unless you've dumped your flash first (esptool's <code style="font-family:ui-monospace,monospace;font-size:13px">read_flash</code> can back it up beforehand).</div>
+      </details>
+      <details>
+        <summary>Is this safe? What are you actually flashing?</summary>
+        <div class="a">The unmodified v1.6.7 release binaries from the open-source <a href="https://github.com/tronbyt/firmware-esp32" target="_blank" rel="noopener">tronbyt/firmware-esp32</a> project, served from this site so your browser can load them. Flashing happens entirely between your browser and the device — nothing is uploaded anywhere.</div>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot-inner">
+    <span class="wordmark">LUKE<b>BYT</b></span>
+    <p>
+      Firmware by the <a href="https://github.com/tronbyt" target="_blank" rel="noopener">Tronbyt</a> community project,
+      pinned at v1.6.7. Flashing via <a href="https://github.com/espressif/esptool-js" target="_blank" rel="noopener">esptool-js</a>.
+      Not affiliated with Tidbyt or Modal Labs. Tidbyt is a trademark of its owner.
+      You flash your own device at your own risk — though the risk is genuinely small.
+    </p>
+  </div>
+</footer>
+
+<!--
+  Firmware binaries in ./firmware/ are byte-identical to the release assets at
+  https://github.com/tronbyt/firmware-esp32/releases/tag/v1.6.7 — sha256:
+    tidbyt-gen1_merged_v1.6.7.bin       0e33211f40b1627bc3d1e2e9b91563b9bc8952b099943eec07f49fd7dc0a99b2
+    tidbyt-gen1_swap_merged_v1.6.7.bin  65003f3f7b2ba94695abb31293d7db1eb1e965aa339d106424b72a66836b378b
+    tidbyt-gen2_merged_v1.6.7.bin       f4460c89414cd93a4df25fe9c7e11d51aa00a65ac7b14d7d054baff3a4c8efe7
+-->
+<script type="module">
+import { ESPLoader, Transport } from "./vendor/esptool-js-0.6.1.js";
+
+const FIRMWARE = {
+  gen1:      { url: "firmware/tidbyt-gen1_merged_v1.6.7.bin",      label: "Tidbyt Gen 1 · Tronbyt v1.6.7" },
+  gen1_swap: { url: "firmware/tidbyt-gen1_swap_merged_v1.6.7.bin", label: "Tidbyt Gen 1 swapped · Tronbyt v1.6.7" },
+  gen2:      { url: "firmware/tidbyt-gen2_merged_v1.6.7.bin",      label: "Tidbyt Gen 2 · Tronbyt v1.6.7" },
+};
+
+const $ = id => document.getElementById(id);
+const term = $("term");
+let transport = null, esploader = null, chipName = null, busy = false;
+
+/* ---------- log ---------- */
+function log(msg, cls) {
+  const line = document.createElement("div");
+  if (cls) line.className = cls;
+  line.textContent = msg;
+  term.appendChild(line);
+  term.scrollTop = term.scrollHeight;
+}
+let partial = null;
+const espTerminal = {
+  clean() { term.textContent = ""; partial = null; },
+  writeLine(data) { partial = null; log(data); },
+  write(data) {
+    if (!partial) { partial = document.createElement("div"); term.appendChild(partial); }
+    partial.textContent += data;
+    term.scrollTop = term.scrollHeight;
+  },
+};
+
+/* ---------- capability gate ---------- */
+if (!("serial" in navigator)) {
+  $("no-serial").classList.add("show");
+  $("btn-connect").disabled = true;
+  log("Web Serial not available in this browser — open this page in Chrome or Edge.", "bad");
+} else {
+  log("Ready. Choose firmware, plug in the Tidbyt, hit Connect.");
+}
+
+/* ---------- step 1: firmware selection ---------- */
+function selectedFw() {
+  return document.querySelector('input[name="fw"]:checked').value;
+}
+function fwReady() {
+  return selectedFw() !== "custom" || $("fw-file").files.length > 0;
+}
+function refreshSteps() {
+  $("step-fw").classList.toggle("done", fwReady());
+  $("step-conn").classList.toggle("done", !!esploader);
+  $("btn-flash").disabled = busy || !esploader || !fwReady();
+}
+document.querySelectorAll('input[name="fw"]').forEach(r =>
+  r.addEventListener("change", () => {
+    $("custom-row").classList.toggle("show", selectedFw() === "custom");
+    refreshSteps();
+  })
+);
+$("fw-file").addEventListener("change", refreshSteps);
+refreshSteps();
+
+async function getFirmware() {
+  if (selectedFw() === "custom") {
+    const f = $("fw-file").files[0];
+    const offset = parseInt($("fw-offset").value, 16);
+    if (Number.isNaN(offset)) throw new Error("Flash offset must be hex, e.g. 0x0");
+    log(`Using ${f.name} (${(f.size / 1024).toFixed(0)} KB) at offset 0x${offset.toString(16)}`);
+    return { data: new Uint8Array(await f.arrayBuffer()), address: offset };
+  }
+  const fw = FIRMWARE[selectedFw()];
+  log(`Fetching ${fw.label}…`);
+  const resp = await fetch(fw.url);
+  if (!resp.ok) throw new Error(`Couldn't fetch firmware (HTTP ${resp.status})`);
+  const data = new Uint8Array(await resp.arrayBuffer());
+  log(`Fetched ${(data.length / 1024).toFixed(0)} KB.`);
+  return { data, address: 0x0 };
+}
+
+/* ---------- step 2: connect ---------- */
+async function cleanupTransport() {
+  if (transport) { try { await transport.disconnect(); } catch (e) {} }
+  transport = null; esploader = null; chipName = null;
+  $("conn-status").innerHTML = "NOT CONNECTED";
+  $("btn-connect").style.display = "";
+  $("btn-disconnect").style.display = "none";
+  refreshSteps();
+}
+
+$("btn-connect").addEventListener("click", async () => {
+  if (busy) return;
+  busy = true; refreshSteps();
+  try {
+    const port = await navigator.serial.requestPort();
+    transport = new Transport(port, true);
+    esploader = new ESPLoader({
+      transport,
+      baudrate: parseInt($("baud").value),
+      terminal: espTerminal,
+    });
+    chipName = await esploader.main();
+    $("conn-status").innerHTML = `<b>${chipName}</b>`;
+    $("btn-connect").style.display = "none";
+    $("btn-disconnect").style.display = "";
+    log(`Connected: ${chipName}`, "good");
+    if (selectedFw() !== "custom" && !/ESP32(?![-–]?S|[-–]?C)/i.test(chipName)) {
+      log(`Heads up: this chip reports as "${chipName}" — a Tidbyt is a plain ESP32. Double-check you've picked the right firmware before flashing.`, "warn");
+    }
+  } catch (e) {
+    if (e && e.name === "NotFoundError") {
+      log("No port chosen.");
+    } else {
+      log(`Connect failed: ${e.message || e}`, "bad");
+      log("Try a different cable or port, or drop to 115200 baud.", "warn");
+    }
+    await cleanupTransport();
+  } finally {
+    busy = false; refreshSteps();
+  }
+});
+
+$("btn-disconnect").addEventListener("click", async () => {
+  if (busy) return;
+  await cleanupTransport();
+  log("Disconnected.");
+});
+
+navigator.serial?.addEventListener?.("disconnect", async () => {
+  if (transport && !busy) { await cleanupTransport(); log("Device unplugged.", "warn"); }
+});
+
+/* ---------- step 3: flash ---------- */
+$("btn-flash").addEventListener("click", async () => {
+  if (busy || !esploader) return;
+  busy = true; refreshSteps();
+  const fill = $("progress-fill"), pct = $("progress-pct");
+  $("progress-wrap").classList.add("show");
+  $("success").classList.remove("show");
+  fill.style.width = "0%"; pct.textContent = "0%";
+  try {
+    const { data, address } = await getFirmware();
+    if ($("erase-all").checked) log("Full-flash erase requested — the quiet minute at the start is normal.");
+    log("Writing… don't unplug.");
+    await esploader.writeFlash({
+      fileArray: [{ data, address }],
+      flashSize: "keep",
+      flashMode: "keep",
+      flashFreq: "keep",
+      eraseAll: $("erase-all").checked,
+      compress: true,
+      reportProgress: (i, written, total) => {
+        const p = Math.round((written / total) * 100);
+        fill.style.width = p + "%";
+        pct.textContent = p + "%";
+      },
+    });
+    fill.style.width = "100%"; pct.textContent = "100%";
+    log("Write complete. Rebooting the device…", "good");
+    await esploader.after();           // hard reset into the new firmware
+    await cleanupTransport();          // release the port
+    $("step-flash").classList.add("done");
+    $("success").classList.add("show");
+    $("success").scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch (e) {
+    log(`Flash failed: ${e.message || e}`, "bad");
+    log("Nothing is bricked. Unplug, replug, reconnect, and flash again — at 115200 baud if it keeps happening.", "warn");
+    await cleanupTransport();
+  } finally {
+    busy = false; refreshSteps();
+  }
+});
+</script>
+</body>
+</html>
